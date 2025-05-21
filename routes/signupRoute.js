@@ -1,30 +1,20 @@
-import express from 'express';
-import bcrypt from 'bcrypt';
-// import jwt from 'jsonwebtoken';
-import User from '../models/User.js';
+import express from "express";
+import createUser from "../controllers/usersControllers.js";
+import upload from '../middlewares/multer.js';
+import verifyToken from '../middlewares/verifyToken.js';
+import User from "../models/user.js"; 
 
-const router =express.Router();
+const router = express.Router();
 
-// Signup Router
-router.post('/signup',async(req,res)=>{
-  const {FullName,Email,Phone,Password}=req.body;
+router.post('/signup', upload.single('profilePic'), createUser);
 
+router.get('/me', verifyToken, async (req, res) => {
   try {
-    const existingUser= await User.findOne({Email})
-    if(existingUser){
-      return res.status(400).json({success:false,message:'Email already exist'})
-    }
-
-    const hashPassword = await bcrypt.hash(Password,10);
-
-    const newUser =new User({FullName,Email,Phone,Password:hashPassword})
-    await newUser.save();
-
-    res.status(201).json({success:true,message:'User registered successfully'})
-  } catch (error) {
-    console.error('Error:',err);
-    res.status(500).json({success:false,message:'Server error'})
-    
+    const user = await User.findById(req.userId).select('-Password');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    res.json({ success: true, user });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
   }
 });
 

@@ -1,34 +1,37 @@
 import express from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import User from '../models/User.js';
+import User from '../models/user.js';
 
-const router=express.Router();
-const JWT_SECRET=process.env.JWT_SECRET;
+const router = express.Router();
 
-//login router
+router.post('/login', async (req, res) => {
+  const { Email, Password } = req.body;
 
-router.post('/login',async(req,res)=>{
-    const {Email, Password}= req.body;
-
-    try {
-        const user=await User.findOne({Email});
-        if(!user){
-            return res.status(404).json({success:false,message:'User not found'})
-        }
-        const isMatch = await bcrypt.compare(Password,user.Password);
-        if(!isMatch){
-            return res.status(401).json({success:false,message:'Invalid Password'})
-        }
-        const token =jwt.sign({userId:user._id},process.env.JWT_SECRET,{expiresIn:'1h'})
-
-        res.status(200).json({success:true,message:'Login successful',token,user:{FullName:user.FullName,
-            Email:user.Email,Phone:user.Phone
-        }});
-    } catch (error) {
-        console.error('Login Error:',error);
-        res.status(500).json({success:false,message:'server error'})
+  try {
+    const user = await User.findOne({ Email }).select('+Password');
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid email or password' });
     }
-})
+
+    const isMatch = await bcrypt.compare(Password, user.Password);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Invalid email or password' });
+    }
+
+    const token = jwt.sign(
+      { userId: user._id },
+      process.env.JWT_SECRET,
+      { expiresIn: '1d' }
+    );
+
+    const { Password: _, ...userData } = user.toObject(); // exclude password in response
+
+    res.status(200).json({ token, user: userData });
+  } catch (error) {
+    console.error('Login Error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 
 export default router;
